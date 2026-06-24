@@ -182,7 +182,7 @@ class LiveCapAdapter:
         return await self.client.get_order(order_id)
 
     async def list_orders(self, status: str = "paid") -> list:
-        options = self.sdk.ListOptions(agent_id=self.agent_id, status=status)
+        options = self.sdk.ListOptions(role="provider", agent_id=self.agent_id, status=status)
         return await self.client.list_orders(options)
 
     async def deliver_order(self, order_id: str, result_payload: dict):
