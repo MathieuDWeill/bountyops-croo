@@ -1,0 +1,18 @@
+[
+  {
+    "title": "CROO Agent Hackathon",
+    "platform": "DoraHacks / Kaggle",
+    "prize_pool_usd": 10200,
+    "days_left": 18,
+    "buidls": 33,
+    "tracks": ["Open – Any A2A Agents", "Developer Tooling Agents"]
+  },
+  {
+    "title": "Generic AI Tool Challenge",
+    "platform": "Devpost",
+    "prize_pool_usd": 2500,
+    "days_left": 8,
+    "buidls": 210,
+    "tracks": ["AI", "Productivity"]
+  }
+]

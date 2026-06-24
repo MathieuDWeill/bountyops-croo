@@ -1,0 +1,260 @@
+{
+    "order_id": "order_local_demo",
+    "buyer_wallet": "0xBuyer0001",
+    "agent_name": "BountyOps",
+    "status": "completed",
+    "specialist_orders": [
+        {
+            "order_id": "suborder_952747a703c3",
+            "agent_name": "OpportunityScoutAgent",
+            "agent_wallet": "0xScoutAgent",
+            "service": "opportunity_scan",
+            "price_usdc": 2.0,
+            "status": "completed",
+            "deliverable": {
+                "title": "CROO Agent Hackathon",
+                "platform": "DoraHacks / Kaggle",
+                "prize_pool_usd": 10200.0,
+                "days_left": 18,
+                "competition_density": "low",
+                "visible_buidls": 33,
+                "visible_hackers": 184,
+                "requirements_detected": [
+                    "Listed on CROO Agent Store \u2014 discoverable by humans and other agents",
+                    "Integrated with CAP \u2014 agent is callable, settles on-chain",
+                    "Open source \u2014 public GitHub repo with MIT / Apache 2.0 / similar permissive license",
+                    "Demo + README \u2014 max 5-min demo video, setup instructions, SDK methods used, integration notes",
+                    "BUIDL filed on DoraHacks \u2014 all required fields completed"
+                ],
+                "missing_requirement_signals": [
+                    "open-source"
+                ],
+                "profile_fit_signals": []
+            }
+        },
+        {
+            "order_id": "suborder_52bf83814ac4",
+            "agent_name": "ROIScorerAgent",
+            "agent_wallet": "0xROIScorer",
+            "service": "expected_value_scoring",
+            "price_usdc": 3.0,
+            "status": "completed",
+            "deliverable": {
+                "expected_value_score": 71,
+                "decision": "GO",
+                "components": {
+                    "prize_score": 78,
+                    "urgency_score": 70,
+                    "density_score": 85,
+                    "fit_score": 70,
+                    "effort_penalty": 16
+                },
+                "rationale": [
+                    "Prize pool signal: $10,200.",
+                    "Competition density appears low based on visible BUIDLs.",
+                    "Builder skill fit score is 70/100.",
+                    "The opportunity rewards callable, paid, composable agents, matching BountyOps' procurement workflow."
+                ]
+            }
+        },
+        {
+            "order_id": "suborder_7c6d1873e78a",
+            "agent_name": "AgentDesignerAgent",
+            "agent_wallet": "0xDesignerAgent",
+            "service": "project_design",
+            "price_usdc": 4.0,
+            "status": "completed",
+            "deliverable": {
+                "name": "BountyOps \u2014 Autonomous Opportunity-to-Submission Agent",
+                "tagline": "Find paid builder opportunities, score expected value, and hire agents to prepare winning submissions.",
+                "primary_track": "Open \u2013 Any A2A Agents",
+                "secondary_track": "Developer Tooling Agents",
+                "architecture": [
+                    "BountyOps orchestrator exposes CAP-callable services.",
+                    "Scout Agent extracts opportunity facts and constraints.",
+                    "ROI Scorer Agent evaluates expected value and go/no-go.",
+                    "Agent Designer Agent chooses the most commercially useful project angle.",
+                    "Submission Writer Agent produces the writeup, README outline, and demo script.",
+                    "Verifier Agent validates requirements and emits a proof hash."
+                ],
+                "why_it_can_win": [
+                    "It demonstrates agents hiring agents rather than a standalone chatbot.",
+                    "It has clear monetization beyond the hackathon.",
+                    "It uses the hackathon itself as a memorable real-world demo.",
+                    "It naturally creates multiple counterparty agent orders."
+                ]
+            }
+        },
+        {
+            "order_id": "suborder_95a5d667fcca",
+            "agent_name": "SubmissionWriterAgent",
+            "agent_wallet": "0xWriterAgent",
+            "service": "submission_pack_drafting",
+            "price_usdc": 8.0,
+            "status": "completed",
+            "deliverable": {
+                "readme_outline": "# BountyOps \u2014 Autonomous Opportunity-to-Submission Agent\n\nFind paid builder opportunities, score expected value, and hire agents to prepare winning submissions.\n\n## Problem\nPaid builder opportunities are fragmented across hackathons, grants, bounties, and RFPs. Builders often waste time on low-ROI opportunities or miss undercrowded ones.\n\n## Solution\nBountyOps is a CAP-callable procurement agent. It scouts opportunities, scores expected value, then hires specialist agents to prepare a complete submission pack.\n\n## A2A workflow\n1. Buyer Agent requests an opportunity analysis.\n2. BountyOps creates specialist orders.\n3. Scout, ROI, Designer, Writer, and Verifier agents deliver their outputs.\n4. BountyOps assembles a final pack with a proof hash.\n\n## Monetization\nBountyOps charges for opportunity scans, ROI rankings, and full submission packs.\n",
+                "dorahacks_writeup": "BountyOps is an autonomous bounty intelligence and submission desk for builders. It turns the CROO thesis into a concrete commercial workflow: a buyer agent pays BountyOps, and BountyOps hires specialist agents to transform a raw opportunity into a decision and submission pack.\n\nFor this demo, the opportunity is CROO Agent Hackathon. BountyOps evaluates the prize pool, deadline, competition density, requirements, and builder fit. It recommends building BountyOps itself because the project directly proves A2A composability: agents discover, hire, pay, verify, and compose other agents.\n\nThe final deliverable includes a go/no-go recommendation, expected-value score, project concept, track selection, README outline, DoraHacks writeup, demo script, compliance checklist, CAP-style ledger, and proof hash.\n",
+                "demo_script": "0:00\u20130:30 \u2014 Introduce the problem: builders miss paid opportunities or waste time on low-ROI ones.\n0:30\u20131:00 \u2014 Show the buyer agent submitting the CROO Agent Hackathon opportunity to BountyOps.\n1:00\u20131:45 \u2014 Show BountyOps creating specialist CAP-style orders for Scout, ROI Scorer, Designer, Writer, and Verifier agents.\n1:45\u20132:45 \u2014 Show each specialist deliverable and the local CAP ledger with prices and counterparties.\n2:45\u20133:45 \u2014 Show the final submission pack: go/no-go, expected-value score, recommended project, tracks, writeup, README, and demo script.\n3:45\u20134:30 \u2014 Show the proof hash and verification checklist.\n4:30\u20135:00 \u2014 Explain monetization beyond this hackathon: builders and agents can pay BountyOps to find and prepare profitable opportunities.\n",
+                "submission_checklist": [
+                    "Public GitHub/GitLab/Bitbucket repository with MIT or Apache-2.0 license.",
+                    "CAP-callable service documented in README.",
+                    "CROO Agent Store listing prepared.",
+                    "Demo video under 5 minutes.",
+                    "DoraHacks BUIDL filed before deadline.",
+                    "At least three specialist counterparty agents shown in demo.",
+                    "Order ledger and proof hash included as verification artifacts."
+                ]
+            }
+        },
+        {
+            "order_id": "suborder_a2363971a718",
+            "agent_name": "VerifierAgent",
+            "agent_wallet": "0xVerifierAgent",
+            "service": "compliance_and_proof_check",
+            "price_usdc": 3.0,
+            "status": "completed",
+            "deliverable": {
+                "passed": true,
+                "risk_review": [
+                    "No blocking issues detected for the local demo submission pack."
+                ],
+                "next_actions": [
+                    "Replace local CAP adapter with live CROO SDK calls when credentials are available.",
+                    "List BountyOps on CROO Agent Store.",
+                    "Record a 3\u20135 minute demo using examples/croo_input.json.",
+                    "Create several test buyer wallets and counterparty agent listings for real order evidence."
+                ]
+            }
+        }
+    ],
+    "ledger": [
+        {
+            "event_id": "evt_b589c8ce1814",
+            "timestamp": "2026-06-24T08:09:14.751021Z",
+            "actor": "Buyer",
+            "action": "order_paid",
+            "counterparty": "BountyOps",
+            "amount_usdc": 25.0,
+            "metadata": {
+                "buyer_wallet": "0xBuyer0001"
+            }
+        },
+        {
+            "event_id": "evt_18bdec200ee7",
+            "timestamp": "2026-06-24T08:09:14.751158Z",
+            "actor": "BountyOps",
+            "action": "orchestration_started",
+            "counterparty": null,
+            "amount_usdc": null,
+            "metadata": {
+                "opportunity": "CROO Agent Hackathon"
+            }
+        },
+        {
+            "event_id": "evt_e8bdbc407c2d",
+            "timestamp": "2026-06-24T08:09:14.751231Z",
+            "actor": "BountyOps",
+            "action": "specialist_paid",
+            "counterparty": "OpportunityScoutAgent",
+            "amount_usdc": 2.0,
+            "metadata": {}
+        },
+        {
+            "event_id": "evt_a3c72807c1e9",
+            "timestamp": "2026-06-24T08:09:14.751363Z",
+            "actor": "BountyOps",
+            "action": "specialist_paid",
+            "counterparty": "ROIScorerAgent",
+            "amount_usdc": 3.0,
+            "metadata": {}
+        },
+        {
+            "event_id": "evt_20bb0c15626b",
+            "timestamp": "2026-06-24T08:09:14.751453Z",
+            "actor": "BountyOps",
+            "action": "specialist_paid",
+            "counterparty": "AgentDesignerAgent",
+            "amount_usdc": 4.0,
+            "metadata": {}
+        },
+        {
+            "event_id": "evt_d3f74897fbd8",
+            "timestamp": "2026-06-24T08:09:14.751533Z",
+            "actor": "BountyOps",
+            "action": "specialist_paid",
+            "counterparty": "SubmissionWriterAgent",
+            "amount_usdc": 8.0,
+            "metadata": {}
+        },
+        {
+            "event_id": "evt_f93555369ce5",
+            "timestamp": "2026-06-24T08:09:14.751562Z",
+            "actor": "BountyOps",
+            "action": "specialist_paid",
+            "counterparty": "VerifierAgent",
+            "amount_usdc": 3.0,
+            "metadata": {}
+        },
+        {
+            "event_id": "evt_c67bf7d458e1",
+            "timestamp": "2026-06-24T08:09:14.752777Z",
+            "actor": "BountyOps",
+            "action": "final_deliverable_created",
+            "counterparty": null,
+            "amount_usdc": null,
+            "metadata": {
+                "proof_hash": "sha256:344ad7f9cd1a94d09b18b839ec5072fcbc6603c593a144133b6156f27b008702"
+            }
+        },
+        {
+            "event_id": "evt_f5a6c3c30a09",
+            "timestamp": "2026-06-24T08:09:14.752788Z",
+            "actor": "BountyOps",
+            "action": "order_completed",
+            "counterparty": "Buyer",
+            "amount_usdc": 25.0,
+            "metadata": {}
+        }
+    ],
+    "submission_pack": {
+        "go_no_go": "GO",
+        "expected_value_score": 71,
+        "recommended_project": "BountyOps \u2014 Autonomous Opportunity-to-Submission Agent",
+        "tagline": "Find paid builder opportunities, score expected value, and hire agents to prepare winning submissions.",
+        "primary_track": "Open \u2013 Any A2A Agents",
+        "secondary_track": "Developer Tooling Agents",
+        "rationale": [
+            "Prize pool signal: $10,200.",
+            "Competition density appears low based on visible BUIDLs.",
+            "Builder skill fit score is 70/100.",
+            "The opportunity rewards callable, paid, composable agents, matching BountyOps' procurement workflow.",
+            "It demonstrates agents hiring agents rather than a standalone chatbot.",
+            "It has clear monetization beyond the hackathon.",
+            "It uses the hackathon itself as a memorable real-world demo.",
+            "It naturally creates multiple counterparty agent orders."
+        ],
+        "submission_checklist": [
+            "Public GitHub/GitLab/Bitbucket repository with MIT or Apache-2.0 license.",
+            "CAP-callable service documented in README.",
+            "CROO Agent Store listing prepared.",
+            "Demo video under 5 minutes.",
+            "DoraHacks BUIDL filed before deadline.",
+            "At least three specialist counterparty agents shown in demo.",
+            "Order ledger and proof hash included as verification artifacts."
+        ],
+        "readme_outline": "# BountyOps \u2014 Autonomous Opportunity-to-Submission Agent\n\nFind paid builder opportunities, score expected value, and hire agents to prepare winning submissions.\n\n## Problem\nPaid builder opportunities are fragmented across hackathons, grants, bounties, and RFPs. Builders often waste time on low-ROI opportunities or miss undercrowded ones.\n\n## Solution\nBountyOps is a CAP-callable procurement agent. It scouts opportunities, scores expected value, then hires specialist agents to prepare a complete submission pack.\n\n## A2A workflow\n1. Buyer Agent requests an opportunity analysis.\n2. BountyOps creates specialist orders.\n3. Scout, ROI, Designer, Writer, and Verifier agents deliver their outputs.\n4. BountyOps assembles a final pack with a proof hash.\n\n## Monetization\nBountyOps charges for opportunity scans, ROI rankings, and full submission packs.\n",
+        "dorahacks_writeup": "BountyOps is an autonomous bounty intelligence and submission desk for builders. It turns the CROO thesis into a concrete commercial workflow: a buyer agent pays BountyOps, and BountyOps hires specialist agents to transform a raw opportunity into a decision and submission pack.\n\nFor this demo, the opportunity is CROO Agent Hackathon. BountyOps evaluates the prize pool, deadline, competition density, requirements, and builder fit. It recommends building BountyOps itself because the project directly proves A2A composability: agents discover, hire, pay, verify, and compose other agents.\n\nThe final deliverable includes a go/no-go recommendation, expected-value score, project concept, track selection, README outline, DoraHacks writeup, demo script, compliance checklist, CAP-style ledger, and proof hash.\n",
+        "demo_script": "0:00\u20130:30 \u2014 Introduce the problem: builders miss paid opportunities or waste time on low-ROI ones.\n0:30\u20131:00 \u2014 Show the buyer agent submitting the CROO Agent Hackathon opportunity to BountyOps.\n1:00\u20131:45 \u2014 Show BountyOps creating specialist CAP-style orders for Scout, ROI Scorer, Designer, Writer, and Verifier agents.\n1:45\u20132:45 \u2014 Show each specialist deliverable and the local CAP ledger with prices and counterparties.\n2:45\u20133:45 \u2014 Show the final submission pack: go/no-go, expected-value score, recommended project, tracks, writeup, README, and demo script.\n3:45\u20134:30 \u2014 Show the proof hash and verification checklist.\n4:30\u20135:00 \u2014 Explain monetization beyond this hackathon: builders and agents can pay BountyOps to find and prepare profitable opportunities.\n",
+        "risk_review": [
+            "No blocking issues detected for the local demo submission pack."
+        ],
+        "next_actions": [
+            "Replace local CAP adapter with live CROO SDK calls when credentials are available.",
+            "List BountyOps on CROO Agent Store.",
+            "Record a 3\u20135 minute demo using examples/croo_input.json.",
+            "Create several test buyer wallets and counterparty agent listings for real order evidence."
+        ]
+    },
+    "proof_hash": "sha256:344ad7f9cd1a94d09b18b839ec5072fcbc6603c593a144133b6156f27b008702"
+}

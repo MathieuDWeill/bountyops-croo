@@ -1,0 +1,274 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BountyOps CROO Demo Report</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      background: #0b1020;
+      color: #eef2ff;
+    }
+    header {
+      padding: 48px;
+      background: linear-gradient(135deg, #111827, #312e81);
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    h1 { font-size: 44px; margin: 0 0 12px; }
+    h2 { margin-top: 40px; }
+    .tagline { font-size: 20px; color: #c7d2fe; }
+    .wrap { max-width: 1120px; margin: 0 auto; padding: 32px; }
+    .hero {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .metric, .card {
+      background: rgba(255,255,255,.07);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    }
+    .metric strong { display: block; font-size: 28px; color: #a7f3d0; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    code {
+      background: rgba(255,255,255,.1);
+      padding: 2px 6px;
+      border-radius: 6px;
+      color: #bfdbfe;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255,255,255,.06);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px;
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: #c7d2fe; }
+    .proof {
+      word-break: break-all;
+      background: rgba(16,185,129,.12);
+      border: 1px solid rgba(16,185,129,.35);
+      padding: 16px;
+      border-radius: 14px;
+    }
+    .box {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 20px;
+      margin: 16px 0;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BountyOps</h1>
+    <div class="tagline">Autonomous Opportunity-to-Submission Agent for CROO CAP commerce</div>
+  </header>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="metric"><span>Decision</span><strong>GO</strong></div>
+      <div class="metric"><span>EV Score</span><strong>71/100</strong></div>
+      <div class="metric"><span>Specialist Agents</span><strong>5</strong></div>
+      <div class="metric"><span>Total Order</span><strong>25.0 USDC</strong></div>
+    </section>
+
+    <h2>Recommended Project</h2>
+    <div class="box"><b>BountyOps — Autonomous Opportunity-to-Submission Agent</b><br>Find paid builder opportunities, score expected value, and hire agents to prepare winning submissions.</div>
+
+    <h2>Tracks</h2>
+    <div class="box">Primary: Open – Any A2A Agents<br>Secondary: Developer Tooling Agents</div>
+
+    <h2>A2A Specialist Orders</h2>
+    <div class="grid">
+    <div class="card">
+      <h3>OpportunityScoutAgent</h3>
+      <p><b>Service:</b> opportunity_scan</p>
+      <p><b>Wallet:</b> <code>0xScoutAgent</code></p>
+      <p><b>Price:</b> 2.0 USDC</p>
+      <p><b>Status:</b> completed</p>
+    </div>
+    
+
+    <div class="card">
+      <h3>ROIScorerAgent</h3>
+      <p><b>Service:</b> expected_value_scoring</p>
+      <p><b>Wallet:</b> <code>0xROIScorer</code></p>
+      <p><b>Price:</b> 3.0 USDC</p>
+      <p><b>Status:</b> completed</p>
+    </div>
+    
+
+    <div class="card">
+      <h3>AgentDesignerAgent</h3>
+      <p><b>Service:</b> project_design</p>
+      <p><b>Wallet:</b> <code>0xDesignerAgent</code></p>
+      <p><b>Price:</b> 4.0 USDC</p>
+      <p><b>Status:</b> completed</p>
+    </div>
+    
+
+    <div class="card">
+      <h3>SubmissionWriterAgent</h3>
+      <p><b>Service:</b> submission_pack_drafting</p>
+      <p><b>Wallet:</b> <code>0xWriterAgent</code></p>
+      <p><b>Price:</b> 8.0 USDC</p>
+      <p><b>Status:</b> completed</p>
+    </div>
+    
+
+    <div class="card">
+      <h3>VerifierAgent</h3>
+      <p><b>Service:</b> compliance_and_proof_check</p>
+      <p><b>Wallet:</b> <code>0xVerifierAgent</code></p>
+      <p><b>Price:</b> 3.0 USDC</p>
+      <p><b>Status:</b> completed</p>
+    </div>
+    </div>
+
+    <h2>Why GO?</h2>
+    <ul><li>Prize pool signal: $10,200.</li>
+<li>Competition density appears low based on visible BUIDLs.</li>
+<li>Builder skill fit score is 70/100.</li>
+<li>The opportunity rewards callable, paid, composable agents, matching BountyOps&#x27; procurement workflow.</li>
+<li>It demonstrates agents hiring agents rather than a standalone chatbot.</li>
+<li>It has clear monetization beyond the hackathon.</li>
+<li>It uses the hackathon itself as a memorable real-world demo.</li>
+<li>It naturally creates multiple counterparty agent orders.</li></ul>
+
+    <h2>CAP-style Ledger</h2>
+    <table>
+      <tr><th>Timestamp</th><th>Actor</th><th>Action</th><th>Counterparty</th><th>USDC</th></tr>
+      
+    <tr>
+      <td>2026-06-24T08:09:14.751021Z</td>
+      <td>Buyer</td>
+      <td>order_paid</td>
+      <td>BountyOps</td>
+      <td>25.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751158Z</td>
+      <td>BountyOps</td>
+      <td>orchestration_started</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751231Z</td>
+      <td>BountyOps</td>
+      <td>specialist_paid</td>
+      <td>OpportunityScoutAgent</td>
+      <td>2.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751363Z</td>
+      <td>BountyOps</td>
+      <td>specialist_paid</td>
+      <td>ROIScorerAgent</td>
+      <td>3.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751453Z</td>
+      <td>BountyOps</td>
+      <td>specialist_paid</td>
+      <td>AgentDesignerAgent</td>
+      <td>4.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751533Z</td>
+      <td>BountyOps</td>
+      <td>specialist_paid</td>
+      <td>SubmissionWriterAgent</td>
+      <td>8.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.751562Z</td>
+      <td>BountyOps</td>
+      <td>specialist_paid</td>
+      <td>VerifierAgent</td>
+      <td>3.0</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.752777Z</td>
+      <td>BountyOps</td>
+      <td>final_deliverable_created</td>
+      <td>—</td>
+      <td>—</td>
+    </tr>
+    
+
+    <tr>
+      <td>2026-06-24T08:09:14.752788Z</td>
+      <td>BountyOps</td>
+      <td>order_completed</td>
+      <td>Buyer</td>
+      <td>25.0</td>
+    </tr>
+    
+    </table>
+
+    <h2>Submission Checklist</h2>
+    <ul><li>Public GitHub/GitLab/Bitbucket repository with MIT or Apache-2.0 license.</li>
+<li>CAP-callable service documented in README.</li>
+<li>CROO Agent Store listing prepared.</li>
+<li>Demo video under 5 minutes.</li>
+<li>DoraHacks BUIDL filed before deadline.</li>
+<li>At least three specialist counterparty agents shown in demo.</li>
+<li>Order ledger and proof hash included as verification artifacts.</li></ul>
+
+    <h2>DoraHacks Writeup Draft</h2>
+    <div class="box">BountyOps is an autonomous bounty intelligence and submission desk for builders. It turns the CROO thesis into a concrete commercial workflow: a buyer agent pays BountyOps, and BountyOps hires specialist agents to transform a raw opportunity into a decision and submission pack.
+
+For this demo, the opportunity is CROO Agent Hackathon. BountyOps evaluates the prize pool, deadline, competition density, requirements, and builder fit. It recommends building BountyOps itself because the project directly proves A2A composability: agents discover, hire, pay, verify, and compose other agents.
+
+The final deliverable includes a go/no-go recommendation, expected-value score, project concept, track selection, README outline, DoraHacks writeup, demo script, compliance checklist, CAP-style ledger, and proof hash.
+</div>
+
+    <h2>Demo Script</h2>
+    <div class="box">0:00–0:30 — Introduce the problem: builders miss paid opportunities or waste time on low-ROI ones.
+0:30–1:00 — Show the buyer agent submitting the CROO Agent Hackathon opportunity to BountyOps.
+1:00–1:45 — Show BountyOps creating specialist CAP-style orders for Scout, ROI Scorer, Designer, Writer, and Verifier agents.
+1:45–2:45 — Show each specialist deliverable and the local CAP ledger with prices and counterparties.
+2:45–3:45 — Show the final submission pack: go/no-go, expected-value score, recommended project, tracks, writeup, README, and demo script.
+3:45–4:30 — Show the proof hash and verification checklist.
+4:30–5:00 — Explain monetization beyond this hackathon: builders and agents can pay BountyOps to find and prepare profitable opportunities.
+</div>
+
+    <h2>Verification Proof</h2>
+    <div class="proof">sha256:344ad7f9cd1a94d09b18b839ec5072fcbc6603c593a144133b6156f27b008702</div>
+
+    <h2>Next Actions</h2>
+    <ul><li>Replace local CAP adapter with live CROO SDK calls when credentials are available.</li>
+<li>List BountyOps on CROO Agent Store.</li>
+<li>Record a 3–5 minute demo using examples/croo_input.json.</li>
+<li>Create several test buyer wallets and counterparty agent listings for real order evidence.</li></ul>
+  </main>
+</body>
+</html>

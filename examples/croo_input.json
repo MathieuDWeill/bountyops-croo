@@ -1,0 +1,41 @@
+{
+  "buyer_wallet": "0xBuyer0001",
+  "builder_profile": {
+    "name": "Mathieu",
+    "skills": ["Python", "AI agents", "Kaggle", "Web3", "FastAPI", "OpenAI"],
+    "time_budget_days": 5,
+    "goal": "maximize expected prize value while building something reusable"
+  },
+  "opportunity": {
+    "title": "CROO Agent Hackathon",
+    "platform": "DoraHacks / Kaggle",
+    "prize_pool_usd": 10200,
+    "deadline": "2026-07-12T11:00:00+02:00",
+    "days_left": 18,
+    "buidls": 33,
+    "hackers": 184,
+    "tracks": [
+      "Research & Intelligence Agents",
+      "Data & Verification Agents",
+      "Creator & Content Ops Agents",
+      "DeFi / On-chain Ops Agents",
+      "Developer Tooling Agents",
+      "Open – Any A2A Agents"
+    ],
+    "requirements": [
+      "Listed on CROO Agent Store — discoverable by humans and other agents",
+      "Integrated with CAP — agent is callable, settles on-chain",
+      "Open source — public GitHub repo with MIT / Apache 2.0 / similar permissive license",
+      "Demo + README — max 5-min demo video, setup instructions, SDK methods used, integration notes",
+      "BUIDL filed on DoraHacks — all required fields completed"
+    ],
+    "judging_criteria": {
+      "technical_execution": 30,
+      "a2a_composability": 25,
+      "innovation": 20,
+      "usability_adoption": 15,
+      "presentation": 10
+    },
+    "notes": "Visible stats: 33 BUIDLs, 184 hackers, 18 days left. Reward flags mention <3 unique counterparty agents and <5 unique buyer wallets."
+  }
+}
