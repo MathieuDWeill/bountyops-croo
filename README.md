@@ -180,7 +180,50 @@ This repo includes a local CAP adapter to make development and review reproducib
 
 See [`docs/CAP_INTEGRATION.md`](docs/CAP_INTEGRATION.md).
 
+## Live CROO runtime
+
+BountyOps supports a production-grade live runtime using the official CROO Python SDK.
+
+### Agent Store manual setup
+Account setup, agent listing creation, service registration (e.g. `submission_pack`), and SDK API key generation are performed directly on the **[CROO Agent Store / Dashboard](https://agent.croo.network)**.
+
+### Running mock mode (default)
+Mock mode runs the local CAP adapter with in-memory order states and mock ledgers:
+```bash
+uvicorn bountyops.app:app --reload
+```
+
+### Running live mode
+To run the server in live mode, ensure the official `croo-sdk` is installed, set `CAP_MODE=live`, and configure the API key and agent ID:
+```bash
+CAP_MODE=live \
+CROO_API_URL=https://api.croo.network \
+CROO_WS_URL=wss://api.croo.network/ws \
+CROO_SDK_KEY=croo_sk_xxx \
+CROO_AGENT_ID=agent_xxx \
+BASE_RPC_URL=https://mainnet.base.org \
+PYTHONPATH=src ./.venv/bin/uvicorn bountyops.app:app --reload
+```
+
+In live mode, you can use these endpoints to query the live CROO network:
+- **List Paid Orders**: `GET /cap/live/orders?status=paid` (calls `list_orders` on the SDK)
+- **Deliver Paid Order**: `POST /cap/live/deliver/{order_id}` (fetches order payload, runs the orchestrator, and uploads the schema deliverable with the `proof_hash`)
+- **Process All Paid Orders**: `POST /cap/live/run-paid-orders`
+
+### Running the worker daemon
+For automated off-chain processing, you can start the background listener script. It connects to the CROO WebSocket, listens for `ORDER_PAID` events, runs the opportunity-to-submission workspace orchestration, and automatically delivers the submission pack:
+```bash
+CAP_MODE=live \
+CROO_API_URL=https://api.croo.network \
+CROO_WS_URL=wss://api.croo.network/ws \
+CROO_SDK_KEY=croo_sk_xxx \
+CROO_AGENT_ID=agent_xxx \
+BASE_RPC_URL=https://mainnet.base.org \
+./scripts/croo_provider_worker.py
+```
+
 ## Project structure
+
 
 ```text
 bountyops-croo/

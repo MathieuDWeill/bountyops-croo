@@ -37,9 +37,9 @@ def cap_mode() -> dict:
     mode = os.environ.get("CAP_MODE", "mock").lower()
     sdk = get_croo_sdk()
     sdk_available = sdk is not None
-    api_key = os.environ.get("CROO_API_KEY")
+    sdk_key = os.environ.get("CROO_SDK_KEY")
     agent_id = os.environ.get("CROO_AGENT_ID")
-    credentials_available = bool(api_key and agent_id)
+    credentials_available = bool(sdk_key and agent_id)
     return {
         "mode": mode,
         "sdk_available": sdk_available,
@@ -48,48 +48,122 @@ def cap_mode() -> dict:
 
 
 @app.get("/cap/live/capabilities")
-def cap_live_capabilities() -> dict:
+async def cap_live_capabilities() -> dict:
     try:
         sdk, api_key, agent_id = check_live_dependencies()
         adapter = LiveCapAdapter(sdk, api_key, agent_id)
-        return adapter.capabilities()
+        return await adapter.capabilities()
     except (ImportError, ValueError) as exc:
         raise HTTPException(status_code=500, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Live CROO SDK error: {exc}")
 
 
+@app.get("/cap/live/orders")
+async def cap_live_orders(status: str = "paid") -> list:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        orders = await adapter.list_orders(status=status)
+        return orders
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/cap/live/deliver/{order_id}")
+async def cap_live_deliver(order_id: str) -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        order = await adapter.get_order(order_id)
+        payload_dict = None
+        if hasattr(order, "payload") and order.payload:
+            payload_dict = order.payload
+        elif hasattr(order, "request") and order.request:
+            payload_dict = order.request
+        elif isinstance(order, dict):
+            payload_dict = order.get("payload") or order.get("request")
+            
+        if not payload_dict:
+            raise HTTPException(status_code=400, detail="Order lacks a compatible payload.")
+        
+        run_request = RunRequest(**payload_dict)
+        result = run_bountyops(run_request, order_id=order_id)
+        await adapter.deliver_order(order_id, result.model_dump())
+        return {"status": "delivered", "order_id": order_id, "proof_hash": result.proof_hash}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/cap/live/run-paid-orders")
+async def cap_live_run_paid_orders() -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        orders = await adapter.list_orders(status="paid")
+        processed = []
+        for order in orders:
+            order_id = getattr(order, "order_id", None) or getattr(order, "id", None)
+            if isinstance(order, dict):
+                order_id = order.get("order_id") or order.get("id")
+            if not order_id:
+                continue
+            payload_dict = None
+            if hasattr(order, "payload") and order.payload:
+                payload_dict = order.payload
+            elif hasattr(order, "request") and order.request:
+                payload_dict = order.request
+            elif isinstance(order, dict):
+                payload_dict = order.get("payload") or order.get("request")
+                
+            if payload_dict:
+                run_request = RunRequest(**payload_dict)
+                result = run_bountyops(run_request, order_id=order_id)
+                await adapter.deliver_order(order_id, result.model_dump())
+                processed.append(order_id)
+        return {"status": "success", "processed_order_ids": processed}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/capabilities")
-def capabilities() -> dict:
-    return resolve_adapter().capabilities()
+async def capabilities() -> dict:
+    return await resolve_adapter().capabilities()
 
 
 @app.post("/quote", response_model=Quote)
-def quote(request: QuoteRequest) -> Quote:
-    return resolve_adapter().quote(request)
+async def quote(request: QuoteRequest) -> Quote:
+    return await resolve_adapter().quote(request)
 
 
 @app.post("/orders", response_model=Order)
-def create_order(request: RunRequest) -> Order:
-    return resolve_adapter().create_order(request)
+async def create_order(request: RunRequest) -> Order:
+    return await resolve_adapter().create_order(request)
 
 
 @app.post("/orders/{order_id}/pay", response_model=Order)
-def pay_order(order_id: str) -> Order:
+async def pay_order(order_id: str) -> Order:
     adapter = resolve_adapter()
     try:
-        return adapter.pay_order(order_id)
+        return await adapter.pay_order(order_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Order not found") from exc
+    except NotImplementedError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/orders/{order_id}", response_model=Order)
-def get_order(order_id: str) -> Order:
+async def get_order(order_id: str) -> Order:
     adapter = resolve_adapter()
     try:
-        return adapter.get_order(order_id)
+        return await adapter.get_order(order_id)
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Order not found") from exc
+    except NotImplementedError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.post("/run", response_model=RunResult)

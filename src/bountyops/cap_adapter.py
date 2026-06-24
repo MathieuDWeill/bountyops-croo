@@ -19,7 +19,7 @@ class LocalCapAdapter:
     def __init__(self):
         self.orders: dict[str, Order] = {}
 
-    def capabilities(self) -> dict:
+    async def capabilities(self) -> dict:
         return {
             "agent": "BountyOps",
             "wallet": "0xBountyOpsAgent",
@@ -46,21 +46,21 @@ class LocalCapAdapter:
             ],
         }
 
-    def quote(self, request: QuoteRequest) -> Quote:
+    async def quote(self, request: QuoteRequest) -> Quote:
         return Quote(
             price_usdc=25.0,
             expires_at=(datetime.now(UTC) + timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
             deliverables=["submission_pack", "specialist_order_ledger", "proof_hash"],
         )
 
-    def create_order(self, request: RunRequest) -> Order:
-        quote = self.quote(QuoteRequest(**request.model_dump()))
+    async def create_order(self, request: RunRequest) -> Order:
+        quote = await self.quote(QuoteRequest(**request.model_dump()))
         order = Order(quote=quote, request=request)
         order.ledger.append(LedgerEvent(actor="Buyer", action="order_created", counterparty="BountyOps"))
         self.orders[order.order_id] = order
         return order
 
-    def pay_order(self, order_id: str) -> Order:
+    async def pay_order(self, order_id: str) -> Order:
         order = self.orders[order_id]
         order.status = OrderStatus.PAID
         order.ledger.append(
@@ -73,7 +73,7 @@ class LocalCapAdapter:
         order.ledger.extend(result.ledger)
         return order
 
-    def get_order(self, order_id: str) -> Order:
+    async def get_order(self, order_id: str) -> Order:
         return self.orders[order_id]
 
 
@@ -95,11 +95,26 @@ def check_live_dependencies():
     sdk = get_croo_sdk()
     if sdk is None:
         raise ImportError("CROO SDK (croo module) is missing.")
-    api_key = os.environ.get("CROO_API_KEY")
+    
+    sdk_key = os.environ.get("CROO_SDK_KEY")
+    api_url = os.environ.get("CROO_API_URL")
+    ws_url = os.environ.get("CROO_WS_URL")
     agent_id = os.environ.get("CROO_AGENT_ID")
-    if not api_key or not agent_id:
-        raise ValueError("CROO credentials (CROO_API_KEY, CROO_AGENT_ID) are missing.")
-    return sdk, api_key, agent_id
+    
+    missing = []
+    if not sdk_key:
+        missing.append("CROO_SDK_KEY")
+    if not api_url:
+        missing.append("CROO_API_URL")
+    if not ws_url:
+        missing.append("CROO_WS_URL")
+    if not agent_id:
+        missing.append("CROO_AGENT_ID")
+        
+    if missing:
+        raise ValueError(f"CROO credentials missing: {', '.join(missing)}")
+        
+    return sdk, sdk_key, agent_id
 
 
 class LiveCapAdapter:
@@ -110,50 +125,72 @@ class LiveCapAdapter:
         self.api_key = api_key
         self.agent_id = agent_id
 
-        # Attempt to initialize a client if the SDK exposes Client, Croo, or SDK classes
-        if hasattr(sdk, "Client"):
-            self.client = sdk.Client(api_key=api_key, agent_id=agent_id)
-        elif hasattr(sdk, "Croo"):
-            self.client = sdk.Croo(api_key=api_key, agent_id=agent_id)
-        elif hasattr(sdk, "SDK"):
-            self.client = sdk.SDK(api_key=api_key, agent_id=agent_id)
-        else:
-            self.client = None
+        config = sdk.Config(
+            base_url=os.environ.get("CROO_API_URL", "https://api.croo.network"),
+            ws_url=os.environ.get("CROO_WS_URL", "wss://api.croo.network/ws"),
+            rpc_url=os.environ.get("BASE_RPC_URL", "https://mainnet.base.org"),
+        )
+        self.client = sdk.AgentClient(config, api_key)
 
-    def capabilities(self) -> dict:
+    async def capabilities(self) -> dict:
         if self.client and hasattr(self.client, "capabilities"):
-            return self.client.capabilities()
-        if hasattr(self.sdk, "get_capabilities"):
-            return self.sdk.get_capabilities(api_key=self.api_key, agent_id=self.agent_id)
-        raise AttributeError("CROO SDK does not implement capabilities/get_capabilities.")
+            res = self.client.capabilities()
+            import inspect
+            if inspect.isawaitable(res):
+                return await res
+            return res
+        return {
+            "agent": "BountyOps",
+            "agent_id": self.agent_id,
+            "services": [
+                {
+                    "id": "opportunity_to_submission_pack",
+                    "price_usdc": 25.0,
+                    "description": "Scout, score, design, draft, and verify a builder opportunity submission pack.",
+                    "deliverables": ["submission_pack", "cap_order_ledger", "proof_hash"],
+                },
+                {
+                    "id": "roi_scan",
+                    "price_usdc": 5.0,
+                    "description": "Rank a paid opportunity by expected value and effort.",
+                    "deliverables": ["go_no_go", "score", "rationale"],
+                },
+            ],
+            "counterparty_agents": [
+                "OpportunityScoutAgent",
+                "ROIScorerAgent",
+                "AgentDesignerAgent",
+                "SubmissionWriterAgent",
+                "VerifierAgent",
+            ],
+        }
 
-    def quote(self, request: QuoteRequest) -> Quote:
-        if self.client and hasattr(self.client, "quote"):
-            return self.client.quote(request)
-        if hasattr(self.sdk, "quote"):
-            return self.sdk.quote(request, api_key=self.api_key, agent_id=self.agent_id)
-        raise AttributeError("CROO SDK does not implement quote.")
+    async def quote(self, request: QuoteRequest) -> Quote:
+        return Quote(
+            price_usdc=25.0,
+            expires_at=(datetime.now(UTC) + timedelta(minutes=30)).isoformat().replace("+00:00", "Z"),
+            deliverables=["submission_pack", "specialist_order_ledger", "proof_hash"],
+        )
 
-    def create_order(self, request: RunRequest) -> Order:
-        if self.client and hasattr(self.client, "create_order"):
-            return self.client.create_order(request)
-        if hasattr(self.sdk, "create_order"):
-            return self.sdk.create_order(request, api_key=self.api_key, agent_id=self.agent_id)
-        raise AttributeError("CROO SDK does not implement create_order.")
+    async def create_order(self, request: RunRequest) -> Order:
+        raise NotImplementedError("In live mode, order creation is handled by the CROO network/buyer agent.")
 
-    def pay_order(self, order_id: str) -> Order:
-        if self.client and hasattr(self.client, "pay_order"):
-            return self.client.pay_order(order_id)
-        if hasattr(self.sdk, "pay_order"):
-            return self.sdk.pay_order(order_id, api_key=self.api_key, agent_id=self.agent_id)
-        raise AttributeError("CROO SDK does not implement pay_order.")
+    async def pay_order(self, order_id: str) -> Order:
+        raise NotImplementedError("In live mode, payments and order execution events are handled via the CROO network/worker.")
 
-    def get_order(self, order_id: str) -> Order:
-        if self.client and hasattr(self.client, "get_order"):
-            return self.client.get_order(order_id)
-        if hasattr(self.sdk, "get_order"):
-            return self.sdk.get_order(order_id, api_key=self.api_key, agent_id=self.agent_id)
-        raise AttributeError("CROO SDK does not implement get_order.")
+    async def get_order(self, order_id: str):
+        return await self.client.get_order(order_id)
+
+    async def list_orders(self, status: str = "paid") -> list:
+        options = self.sdk.ListOptions(agent_id=self.agent_id, status=status)
+        return await self.client.list_orders(options)
+
+    async def deliver_order(self, order_id: str, result_payload: dict):
+        req = {
+            "type": self.sdk.DeliverableType.SCHEMA,
+            "value": result_payload
+        }
+        return await self.client.deliver_order(order_id, req)
 
 
 _local_adapter = LocalCapAdapter()
@@ -166,5 +203,6 @@ def get_cap_adapter():
         sdk, api_key, agent_id = check_live_dependencies()
         return LiveCapAdapter(sdk, api_key, agent_id)
     return _local_adapter
+
 
 

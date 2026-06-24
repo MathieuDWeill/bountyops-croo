@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+import asyncio
+import os
+import sys
+
+# Ensure src/ is in the python path for importing bountyops
+src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
+
+from bountyops.cap_adapter import check_live_dependencies
+from bountyops.models import RunRequest
+from bountyops.orchestrator import run_bountyops
+
+
+async def main():
+    print("Starting CROO Provider Worker...")
+    
+    # 1. Check live dependencies first
+    try:
+        sdk, sdk_key, agent_id = check_live_dependencies()
+    except (ImportError, ValueError) as exc:
+        print(f"FATAL: {exc}", file=sys.stderr)
+        sys.exit(1)
+        
+    # 2. Setup Client
+    config = sdk.Config(
+        base_url=os.environ.get("CROO_API_URL", "https://api.croo.network"),
+        ws_url=os.environ.get("CROO_WS_URL", "wss://api.croo.network/ws"),
+        rpc_url=os.environ.get("BASE_RPC_URL", "https://mainnet.base.org"),
+    )
+    client = sdk.AgentClient(config, sdk_key)
+    
+    # 3. Define Callback
+    async def on_order_paid(event):
+        # Extract order details
+        print(f"Received EventType.ORDER_PAID: {event}")
+        order_id = None
+        if isinstance(event, dict):
+            order_id = event.get("order_id") or event.get("id")
+        else:
+            order_id = getattr(event, "order_id", None) or getattr(event, "id", None)
+            
+        if not order_id:
+            print("ERROR: Event lacks order_id or id.", file=sys.stderr)
+            return
+
+        try:
+            # Retrieve the full order to make sure we have the payload
+            order = await client.get_order(order_id)
+            
+            payload_dict = None
+            if hasattr(order, "payload") and order.payload:
+                payload_dict = order.payload
+            elif hasattr(order, "request") and order.request:
+                payload_dict = order.request
+            elif isinstance(order, dict):
+                payload_dict = order.get("payload") or order.get("request")
+                
+            if not payload_dict:
+                print(f"ERROR: Order {order_id} lacks a compatible payload.", file=sys.stderr)
+                return
+
+            print(f"Running orchestrator for order {order_id}...")
+            run_request = RunRequest(**payload_dict)
+            
+            # Run orchestrator
+            result = run_bountyops(run_request, order_id=order_id)
+            
+            # Deliver order
+            print(f"Delivering result for order {order_id}...")
+            req = {
+                "type": sdk.DeliverableType.SCHEMA,
+                "value": result.model_dump()
+            }
+            await client.deliver_order(order_id, req)
+            print(f"Successfully delivered result for order {order_id}. Proof hash: {result.proof_hash}")
+            
+        except Exception as exc:
+            print(f"ERROR processing order {order_id}: {exc}", file=sys.stderr)
+
+    # 4. Connect websocket and attach listener
+    print("Connecting to CROO WebSocket...")
+    stream = await client.connect_websocket()
+    
+    # Listen to EventType.ORDER_PAID
+    stream.on(sdk.EventType.ORDER_PAID, on_order_paid)
+    print("Worker is listening for ORDER_PAID events. Press Ctrl+C to stop.")
+    
+    # Keep the event loop running
+    while True:
+        await asyncio.sleep(3600)
+
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\nWorker stopped by user.")
+        sys.exit(0)
