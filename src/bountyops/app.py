@@ -59,6 +59,30 @@ async def cap_live_capabilities() -> dict:
         raise HTTPException(status_code=500, detail=f"Live CROO SDK error: {exc}")
 
 
+@app.get("/cap/live/negotiations")
+async def cap_live_negotiations(status: str = "pending") -> list:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        negotiations = await adapter.list_negotiations(status=status)
+        return negotiations
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/cap/live/negotiations/{negotiation_id}/accept")
+async def cap_live_accept_negotiation(negotiation_id: str) -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        await adapter.accept_negotiation(negotiation_id)
+        return {"status": "accepted", "negotiation_id": negotiation_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/cap/live/orders")
 async def cap_live_orders(status: str = "paid") -> list:
     adapter = resolve_adapter()

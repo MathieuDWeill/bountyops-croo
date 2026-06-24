@@ -227,3 +227,57 @@ def test_cap_live_run_paid_orders_endpoint(monkeypatch):
     mock_client.deliver_order.assert_called_once()
 
 
+
+def test_cap_live_list_negotiations(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock, AsyncMock
+
+    mock_croo = MagicMock()
+    mock_client = MagicMock()
+    mock_croo.AgentClient.return_value = mock_client
+    
+    mock_negotiations = [{"negotiation_id": "neg_123", "status": "pending"}]
+    mock_client.list_negotiations = AsyncMock(return_value=mock_negotiations)
+    
+    mock_croo.Config = MagicMock()
+    mock_croo.ListOptions = MagicMock()
+    
+    monkeypatch.setitem(sys.modules, "croo", mock_croo)
+    monkeypatch.setenv("CAP_MODE", "live")
+    monkeypatch.setenv("CROO_SDK_KEY", "test-key")
+    monkeypatch.setenv("CROO_API_URL", "test-api")
+    monkeypatch.setenv("CROO_WS_URL", "test-ws")
+    monkeypatch.setenv("CROO_AGENT_ID", "test-agent")
+    
+    response = client.get("/cap/live/negotiations?status=pending")
+    assert response.status_code == 200
+    assert response.json() == mock_negotiations
+    mock_client.list_negotiations.assert_called_once()
+
+
+def test_cap_live_accept_negotiation(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock, AsyncMock
+
+    mock_croo = MagicMock()
+    mock_client = MagicMock()
+    mock_croo.AgentClient.return_value = mock_client
+    
+    mock_client.accept_negotiation = AsyncMock()
+    
+    mock_croo.Config = MagicMock()
+    
+    monkeypatch.setitem(sys.modules, "croo", mock_croo)
+    monkeypatch.setenv("CAP_MODE", "live")
+    monkeypatch.setenv("CROO_SDK_KEY", "test-key")
+    monkeypatch.setenv("CROO_API_URL", "test-api")
+    monkeypatch.setenv("CROO_WS_URL", "test-ws")
+    monkeypatch.setenv("CROO_AGENT_ID", "test-agent")
+    
+    response = client.post("/cap/live/negotiations/neg_123/accept")
+    assert response.status_code == 200
+    assert response.json() == {"status": "accepted", "negotiation_id": "neg_123"}
+    mock_client.accept_negotiation.assert_called_once_with("neg_123")
+
+
+

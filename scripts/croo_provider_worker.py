@@ -79,17 +79,38 @@ async def main():
         except Exception as exc:
             print(f"ERROR processing order {order_id}: {exc}", file=sys.stderr)
 
-    # 4. Connect websocket and attach listener
+    async def on_negotiation_created(event):
+        print(f"Received EventType.NEGOTIATION_CREATED: {event}")
+        negotiation_id = None
+        if isinstance(event, dict):
+            negotiation_id = event.get("negotiation_id") or event.get("id")
+        else:
+            negotiation_id = getattr(event, "negotiation_id", None) or getattr(event, "id", None)
+            
+        if not negotiation_id:
+            print("ERROR: Event lacks negotiation_id or id.", file=sys.stderr)
+            return
+
+        try:
+            print(f"Accepting negotiation {negotiation_id}...")
+            await client.accept_negotiation(negotiation_id)
+            print(f"Successfully accepted negotiation {negotiation_id}")
+        except Exception as exc:
+            print(f"ERROR accepting negotiation {negotiation_id}: {exc}", file=sys.stderr)
+
+    # 4. Connect websocket and attach listeners
     print("Connecting to CROO WebSocket...")
     stream = await client.connect_websocket()
     
-    # Listen to EventType.ORDER_PAID
+    # Listen to EventType.ORDER_PAID and EventType.NEGOTIATION_CREATED
     stream.on(sdk.EventType.ORDER_PAID, on_order_paid)
-    print("Worker is listening for ORDER_PAID events. Press Ctrl+C to stop.")
+    stream.on(sdk.EventType.NEGOTIATION_CREATED, on_negotiation_created)
+    print("Worker is listening for NEGOTIATION_CREATED and ORDER_PAID events. Press Ctrl+C to stop.")
     
     # Keep the event loop running
     while True:
         await asyncio.sleep(3600)
+
 
 
 if __name__ == "__main__":

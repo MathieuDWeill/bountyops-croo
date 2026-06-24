@@ -192,6 +192,17 @@ class LiveCapAdapter:
         }
         return await self.client.deliver_order(order_id, req)
 
+    async def list_negotiations(self, status: str = "pending") -> list:
+        options = self.sdk.ListOptions(role="provider", status=status)
+        return await self.client.list_negotiations(options)
+
+    async def get_negotiation(self, negotiation_id: str):
+        return await self.client.get_negotiation(negotiation_id)
+
+    async def accept_negotiation(self, negotiation_id: str):
+        return await self.client.accept_negotiation(negotiation_id)
+
+
 
 _local_adapter = LocalCapAdapter()
 
