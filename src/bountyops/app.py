@@ -9,6 +9,7 @@ from .cap_adapter import (
     check_live_dependencies,
     get_cap_adapter,
     get_croo_sdk,
+    parse_croo_order,
 )
 from .models import Order, Quote, QuoteRequest, RunRequest, RunResult
 from .orchestrator import run_bountyops
@@ -102,21 +103,16 @@ async def cap_live_deliver(order_id: str) -> dict:
         raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
     try:
         order = await adapter.get_order(order_id)
-        payload_dict = None
-        if hasattr(order, "payload") and order.payload:
-            payload_dict = order.payload
-        elif hasattr(order, "request") and order.request:
-            payload_dict = order.request
-        elif isinstance(order, dict):
-            payload_dict = order.get("payload") or order.get("request")
-            
-        if not payload_dict:
-            raise HTTPException(status_code=400, detail="Order lacks a compatible payload.")
+        try:
+            run_request = parse_croo_order(order)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
         
-        run_request = RunRequest(**payload_dict)
         result = run_bountyops(run_request, order_id=order_id)
         await adapter.deliver_order(order_id, result.model_dump())
         return {"status": "delivered", "order_id": order_id, "proof_hash": result.proof_hash}
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -135,22 +131,17 @@ async def cap_live_run_paid_orders() -> dict:
                 order_id = order.get("order_id") or order.get("id")
             if not order_id:
                 continue
-            payload_dict = None
-            if hasattr(order, "payload") and order.payload:
-                payload_dict = order.payload
-            elif hasattr(order, "request") and order.request:
-                payload_dict = order.request
-            elif isinstance(order, dict):
-                payload_dict = order.get("payload") or order.get("request")
-                
-            if payload_dict:
-                run_request = RunRequest(**payload_dict)
+            try:
+                run_request = parse_croo_order(order)
                 result = run_bountyops(run_request, order_id=order_id)
                 await adapter.deliver_order(order_id, result.model_dump())
                 processed.append(order_id)
+            except Exception as exc:
+                print(f"Error processing order {order_id} in batch run: {exc}")
         return {"status": "success", "processed_order_ids": processed}
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
 
 
 @app.get("/capabilities")

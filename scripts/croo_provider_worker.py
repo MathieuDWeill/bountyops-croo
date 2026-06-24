@@ -8,7 +8,7 @@ src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from bountyops.cap_adapter import check_live_dependencies
+from bountyops.cap_adapter import check_live_dependencies, parse_croo_order
 from bountyops.models import RunRequest
 from bountyops.orchestrator import run_bountyops
 
@@ -49,20 +49,13 @@ async def main():
             # Retrieve the full order to make sure we have the payload
             order = await client.get_order(order_id)
             
-            payload_dict = None
-            if hasattr(order, "payload") and order.payload:
-                payload_dict = order.payload
-            elif hasattr(order, "request") and order.request:
-                payload_dict = order.request
-            elif isinstance(order, dict):
-                payload_dict = order.get("payload") or order.get("request")
-                
-            if not payload_dict:
-                print(f"ERROR: Order {order_id} lacks a compatible payload.", file=sys.stderr)
+            try:
+                run_request = parse_croo_order(order)
+            except ValueError as exc:
+                print(f"ERROR: Order {order_id} lacks a compatible payload: {exc}", file=sys.stderr)
                 return
 
             print(f"Running orchestrator for order {order_id}...")
-            run_request = RunRequest(**payload_dict)
             
             # Run orchestrator
             result = run_bountyops(run_request, order_id=order_id)

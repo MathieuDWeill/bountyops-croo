@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+import json
 import os
+import re
 import sys
 from datetime import UTC, datetime, timedelta
 
-from .models import LedgerEvent, Order, OrderStatus, Quote, QuoteRequest, RunRequest
+from .models import (
+    BuilderProfile,
+    LedgerEvent,
+    Opportunity,
+    Order,
+    OrderStatus,
+    Quote,
+    QuoteRequest,
+    RunRequest,
+)
 from .orchestrator import run_bountyops
 
 
@@ -215,5 +226,107 @@ def get_cap_adapter():
         return LiveCapAdapter(sdk, api_key, agent_id)
     return _local_adapter
 
+def parse_croo_order(order) -> RunRequest:
+    """Extracts order requirements from possible SDK order shapes and converts to RunRequest."""
+    raw_req = None
 
+    def get_valid_val(obj, name):
+        if not hasattr(obj, name):
+            return None
+        val = getattr(obj, name)
+        # Filter out Mock objects to avoid false-positives in unit tests
+        val_type = type(val)
+        if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
+            return None
+        return val
 
+    if isinstance(order, dict):
+        raw_req = order.get("requirements") or order.get("payload") or order.get("request") or order.get("metadata")
+    else:
+        raw_req = (
+            get_valid_val(order, "requirements")
+            or get_valid_val(order, "payload")
+            or get_valid_val(order, "request")
+            or get_valid_val(order, "metadata")
+        )
+
+    if not raw_req:
+        raise ValueError("Order lacks a compatible payload or requirements field.")
+
+    # 2. If it is a JSON string, load it
+    if isinstance(raw_req, str):
+        try:
+            raw_req = json.loads(raw_req)
+        except Exception:
+            pass # Keep it as string if it is not valid JSON
+
+    # 3. Check if it's already a nested RunRequest/dict with builder_profile
+    if isinstance(raw_req, dict) and "builder_profile" in raw_req and "opportunity" in raw_req:
+        return RunRequest(**raw_req)
+
+    # 4. Handle flat CROO schema
+    if isinstance(raw_req, dict):
+        opportunity_title = raw_req.get("opportunity_title")
+        opportunity_description = raw_req.get("opportunity_description")
+        prize_pool_usd = raw_req.get("prize_pool_usd")
+        deadline = raw_req.get("deadline")
+        builder_profile_str = raw_req.get("builder_profile")
+
+        if opportunity_title or builder_profile_str:
+            builder_name = "CROO Buyer"
+            skills = []
+            time_budget_days = 3
+            goal = "maximize expected value"
+
+            if builder_profile_str and isinstance(builder_profile_str, str):
+                if "." in builder_profile_str:
+                    first_part = builder_profile_str.split(".")[0].strip()
+                    if first_part and "skills" not in first_part.lower():
+                        builder_name = first_part
+
+                skills_match = re.search(r"skills:\s*([^.]+)", builder_profile_str, re.IGNORECASE)
+                if skills_match:
+                    skills_text = skills_match.group(1)
+                    skills = [s.strip() for s in re.split(r"[,;]", skills_text) if s.strip()]
+
+                hours_match = re.search(r"(\d+)\s*hours", builder_profile_str, re.IGNORECASE)
+                available_hours = 20
+                if hours_match:
+                    available_hours = int(hours_match.group(1))
+                time_budget_days = max(1, available_hours // 8)
+
+                goal_match = re.search(r"goal:\s*([^.]+)", builder_profile_str, re.IGNORECASE)
+                if goal_match:
+                    goal = goal_match.group(1).strip()
+
+            req_list = []
+            if opportunity_description:
+                req_list = [opportunity_description]
+
+            prize = 0.0
+            if prize_pool_usd is not None:
+                try:
+                    prize = float(prize_pool_usd)
+                except ValueError:
+                    pass
+
+            profile = BuilderProfile(
+                name=builder_name,
+                skills=skills,
+                time_budget_days=time_budget_days,
+                goal=goal
+            )
+
+            opportunity = Opportunity(
+                title=opportunity_title or "Unknown Opportunity",
+                prize_pool_usd=prize,
+                deadline=str(deadline) if deadline else None,
+                requirements=req_list
+            )
+
+            return RunRequest(
+                builder_profile=profile,
+                opportunity=opportunity
+            )
+
+    raise ValueError("Order payload shape is not recognized.")

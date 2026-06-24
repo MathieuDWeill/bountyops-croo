@@ -279,5 +279,41 @@ def test_cap_live_accept_negotiation(monkeypatch):
     assert response.json() == {"status": "accepted", "negotiation_id": "neg_123"}
     mock_client.accept_negotiation.assert_called_once_with("neg_123")
 
+def test_cap_live_deliver_flat_requirements(monkeypatch):
+    import sys
+    from unittest.mock import MagicMock, AsyncMock
 
-
+    mock_croo = MagicMock()
+    mock_client = MagicMock()
+    mock_croo.AgentClient.return_value = mock_client
+    
+    # Mock order response containing requirements as a JSON string
+    mock_order = MagicMock()
+    mock_order.requirements = json.dumps({
+        "deadline": "2026-07-12",
+        "prize_pool_usd": 10200,
+        "builder_profile": "Mathieu Weill. Skills: Python, FastAPI, AI agents, product strategy, hackathon shipping. Available time: around 20 hours. Goal: build a serious, production-grade agent product with real CROO runtime integration, not a mock.",
+        "opportunity_title": "CROO Agent Hackathon",
+        "opportunity_description": "Build and submit a CROO-compatible autonomous agent. The agent must be listed on the CROO Agent Store, integrate with CAP, expose a callable service, return a verifiable deliverable, include an open-source GitHub repository, and provide a short demo video and DoraHacks submission."
+    })
+    
+    mock_client.get_order = AsyncMock(return_value=mock_order)
+    mock_client.deliver_order = AsyncMock()
+    
+    mock_croo.Config = MagicMock()
+    mock_croo.DeliverableType = MagicMock()
+    
+    monkeypatch.setitem(sys.modules, "croo", mock_croo)
+    monkeypatch.setenv("CAP_MODE", "live")
+    monkeypatch.setenv("CROO_SDK_KEY", "test-key")
+    monkeypatch.setenv("CROO_API_URL", "test-api")
+    monkeypatch.setenv("CROO_WS_URL", "test-ws")
+    monkeypatch.setenv("CROO_AGENT_ID", "test-agent")
+    
+    response = client.post("/cap/live/deliver/order_789")
+    assert response.status_code == 200
+    assert response.json()["status"] == "delivered"
+    assert response.json()["order_id"] == "order_789"
+    assert response.json()["proof_hash"].startswith("sha256:")
+    mock_client.get_order.assert_called_once_with("order_789")
+    mock_client.deliver_order.assert_called_once()
