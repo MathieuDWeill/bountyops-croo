@@ -1,9 +1,23 @@
 import json
+import os
 from pathlib import Path
+import pytest
 
 from fastapi.testclient import TestClient
 
 from bountyops.app import app
+
+@pytest.fixture(autouse=True)
+def clean_env(monkeypatch):
+    monkeypatch.setenv("CAP_MODE", "mock")
+    for var in [
+        "CROO_API_URL",
+        "CROO_WS_URL",
+        "CROO_AGENT_ID",
+        "CROO_API_KEY",
+        "CROO_SDK_KEY",
+    ]:
+        monkeypatch.delenv(var, raising=False)
 
 client = TestClient(app)
 
