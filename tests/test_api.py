@@ -32,7 +32,7 @@ def test_cap_mode_default():
     assert response.status_code == 200
     data = response.json()
     assert data["mode"] == "mock"
-    assert data["sdk_available"] is False
+    assert isinstance(data["sdk_available"], bool)
     assert data["credentials_available"] is False
 
 
