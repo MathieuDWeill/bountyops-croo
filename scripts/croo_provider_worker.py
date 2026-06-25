@@ -28,29 +28,18 @@ async def handle_negotiation_created(event, client):
     try:
         negotiation = await client.get_negotiation(negotiation_id)
         
-        is_direct = False
-        fund_amount = None
-        fund_token = None
-        if isinstance(negotiation, dict):
-            fund_amount = negotiation.get("fund_amount")
-            fund_token = negotiation.get("fund_token")
-        else:
-            fund_amount = getattr(negotiation, "fund_amount", None)
-            fund_token = getattr(negotiation, "fund_token", None)
-            
         direct_accept_env = os.environ.get("CROO_DIRECT_ACCEPT", "").lower() == "true"
-        if fund_amount is not None or fund_token is not None or direct_accept_env:
-            is_direct = True
+        is_direct = direct_accept_env
             
         if is_direct:
             provider_fund_address = os.environ.get("CROO_PROVIDER_FUND_ADDRESS")
             if not provider_fund_address:
                 raise ValueError("CROO_PROVIDER_FUND_ADDRESS environment variable is required for direct fund-transfer accept.")
-            print(f"Accepting negotiation {negotiation_id} via direct fund-transfer mode with address {provider_fund_address}...")
+            print("Using direct fund-transfer accept")
             await client.accept_negotiation_with_fund_address(negotiation_id, provider_fund_address)
             print(f"Successfully accepted negotiation {negotiation_id} via direct fund-transfer mode")
         else:
-            print(f"Accepting negotiation {negotiation_id} via normal mode...")
+            print("Using standard accept")
             await client.accept_negotiation(negotiation_id)
             print(f"Successfully accepted negotiation {negotiation_id} via normal mode")
     except Exception as exc:

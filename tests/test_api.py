@@ -852,27 +852,18 @@ async def test_worker_handle_negotiation_created(monkeypatch):
     mock_client.accept_negotiation.reset_mock()
     mock_client.accept_negotiation_with_fund_address.reset_mock()
 
-    # 2. Test direct mode due to fund_amount
-    monkeypatch.setenv("CROO_PROVIDER_FUND_ADDRESS", "0xFundAddress")
+    # 2. Test direct negotiation without CROO_DIRECT_ACCEPT=true uses standard accept
     await handle_negotiation_created({"id": "neg_direct_amt"}, mock_client)
-    mock_client.accept_negotiation.assert_not_called()
-    mock_client.accept_negotiation_with_fund_address.assert_called_once_with("neg_direct_amt", "0xFundAddress")
+    mock_client.accept_negotiation.assert_called_once_with("neg_direct_amt")
+    mock_client.accept_negotiation_with_fund_address.assert_not_called()
 
     # Reset mocks
     mock_client.accept_negotiation.reset_mock()
     mock_client.accept_negotiation_with_fund_address.reset_mock()
 
-    # 3. Test direct mode due to fund_token
-    await handle_negotiation_created({"id": "neg_direct_tok"}, mock_client)
-    mock_client.accept_negotiation.assert_not_called()
-    mock_client.accept_negotiation_with_fund_address.assert_called_once_with("neg_direct_tok", "0xFundAddress")
-
-    # Reset mocks
-    mock_client.accept_negotiation.reset_mock()
-    mock_client.accept_negotiation_with_fund_address.reset_mock()
-
-    # 4. Test direct mode due to CROO_DIRECT_ACCEPT=true (even for normal negotiation)
+    # 3. Test direct mode due to CROO_DIRECT_ACCEPT=true (with normal negotiation)
     monkeypatch.setenv("CROO_DIRECT_ACCEPT", "true")
+    monkeypatch.setenv("CROO_PROVIDER_FUND_ADDRESS", "0xFundAddress")
     await handle_negotiation_created({"id": "neg_normal"}, mock_client)
     mock_client.accept_negotiation.assert_not_called()
     mock_client.accept_negotiation_with_fund_address.assert_called_once_with("neg_normal", "0xFundAddress")
@@ -883,7 +874,7 @@ async def test_worker_handle_negotiation_created(monkeypatch):
     monkeypatch.delenv("CROO_DIRECT_ACCEPT", raising=False)
     monkeypatch.delenv("CROO_PROVIDER_FUND_ADDRESS", raising=False)
 
-    # 5. Test direct mode error when CROO_PROVIDER_FUND_ADDRESS is missing
+    # 4. Test direct mode error when CROO_PROVIDER_FUND_ADDRESS is missing
     monkeypatch.setenv("CROO_DIRECT_ACCEPT", "true")
     await handle_negotiation_created({"id": "neg_normal"}, mock_client)
     mock_client.accept_negotiation.assert_not_called()
