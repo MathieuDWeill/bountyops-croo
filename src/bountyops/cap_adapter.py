@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import json
 import os
 import re
@@ -186,21 +187,89 @@ class LiveCapAdapter:
     async def create_order(self, request: RunRequest) -> Order:
         raise NotImplementedError("In live mode, order creation is handled by the CROO network/buyer agent.")
 
-    async def pay_order(self, order_id: str) -> Order:
-        raise NotImplementedError("In live mode, payments and order execution events are handled via the CROO network/worker.")
+    async def pay_order(self, order_id: str):
+        return await self.client.pay_order(order_id)
 
     async def get_order(self, order_id: str):
-        return await self.client.get_order(order_id)
+        order = await self.client.get_order(order_id)
+        try:
+            parse_croo_order(order)
+            return order
+        except ValueError:
+            # Fallback: list orders and match by ID
+            for status in ["created", "paid"]:
+                try:
+                    orders = await self.list_orders(status=status)
+                    for o in orders:
+                        o_dict = to_dict(o)
+                        o_id = o_dict.get("order_id") or o_dict.get("id")
+                        if not o_id and hasattr(o, "order_id"):
+                            o_id = getattr(o, "order_id")
+                        elif not o_id and hasattr(o, "id"):
+                            o_id = getattr(o, "id")
+                        
+                        if str(o_id) == str(order_id):
+                            try:
+                                parse_croo_order(o)
+                                return o
+                            except ValueError:
+                                pass
+                except Exception:
+                    pass
+                try:
+                    options = self.sdk.ListOptions(role="provider", status=status)
+                    orders = await self.client.list_orders(options)
+                    for o in orders:
+                        o_dict = to_dict(o)
+                        o_id = o_dict.get("order_id") or o_dict.get("id")
+                        if not o_id and hasattr(o, "order_id"):
+                            o_id = getattr(o, "order_id")
+                        elif not o_id and hasattr(o, "id"):
+                            o_id = getattr(o, "id")
+                        
+                        if str(o_id) == str(order_id):
+                            try:
+                                parse_croo_order(o)
+                                return o
+                            except ValueError:
+                                pass
+                except Exception:
+                    pass
+            return order
 
     async def list_orders(self, status: str = "paid") -> list:
         options = self.sdk.ListOptions(role="provider", agent_id=self.agent_id, status=status)
         return await self.client.list_orders(options)
 
     async def deliver_order(self, order_id: str, result_payload: dict):
-        req = {
-            "type": self.sdk.DeliverableType.SCHEMA,
-            "value": result_payload
+        serialized_result = safe_serialize(result_payload)
+        
+        submission_pack_dict = serialized_result.get("submission_pack") or {}
+        
+        go_no_go = submission_pack_dict.get("go_no_go") or "MAYBE"
+        expected_value_score = submission_pack_dict.get("expected_value_score") or 0
+        recommended_project = submission_pack_dict.get("recommended_project") or ""
+        proof_hash = serialized_result.get("proof_hash") or ""
+        
+        try:
+            expected_value_score = float(expected_value_score)
+        except (TypeError, ValueError):
+            expected_value_score = 0.0
+            
+        flat_payload = {
+            "go_no_go": str(go_no_go),
+            "expected_value_score": expected_value_score,
+            "recommended_project": str(recommended_project),
+            "proof_hash": str(proof_hash),
+            "submission_pack": json.dumps(serialized_result)
         }
+        
+        schema_json = json.dumps(flat_payload)
+        req = self.sdk.DeliverOrderRequest(
+            deliverable_type=self.sdk.DeliverableType.SCHEMA,
+            deliverable_schema=schema_json,
+            deliverable_text=""
+        )
         return await self.client.deliver_order(order_id, req)
 
     async def list_negotiations(self, status: str = "pending") -> list:
@@ -213,6 +282,8 @@ class LiveCapAdapter:
     async def accept_negotiation(self, negotiation_id: str):
         return await self.client.accept_negotiation(negotiation_id)
 
+    async def accept_negotiation_with_fund_address(self, negotiation_id: str, provider_fund_address: str):
+        return await self.client.accept_negotiation_with_fund_address(negotiation_id, provider_fund_address)
 
 
 _local_adapter = LocalCapAdapter()
@@ -226,23 +297,56 @@ def get_cap_adapter():
         return LiveCapAdapter(sdk, api_key, agent_id)
     return _local_adapter
 
+
+def to_dict(obj):
+    """Safely converts objects, dataclasses, models or dicts to a dict."""
+    if obj is None:
+        return {}
+    val_type = type(obj)
+    if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
+        return {}
+    
+    d = {}
+    if hasattr(obj, "__dict__"):
+        d = vars(obj)
+        if any(k in d for k in ["requirements", "payload", "request", "metadata"]):
+            return d
+            
+    if hasattr(obj, "model_dump") and callable(obj.model_dump):
+        return obj.model_dump()
+    if hasattr(obj, "dict") and callable(obj.dict):
+        return obj.dict()
+        
+    if d:
+        return d
+        
+    if isinstance(obj, dict):
+        return obj
+    try:
+        return dict(obj)
+    except (TypeError, ValueError):
+        pass
+    return {}
+
+
 def parse_croo_order(order) -> RunRequest:
     """Extracts order requirements from possible SDK order shapes and converts to RunRequest."""
     raw_req = None
 
-    def get_valid_val(obj, name):
-        if not hasattr(obj, name):
-            return None
-        val = getattr(obj, name)
-        # Filter out Mock objects to avoid false-positives in unit tests
-        val_type = type(val)
-        if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
-            return None
-        return val
+    order_dict = to_dict(order)
+    if order_dict:
+        raw_req = order_dict.get("requirements") or order_dict.get("payload") or order_dict.get("request") or order_dict.get("metadata")
 
-    if isinstance(order, dict):
-        raw_req = order.get("requirements") or order.get("payload") or order.get("request") or order.get("metadata")
-    else:
+    if not raw_req:
+        def get_valid_val(obj, name):
+            if not hasattr(obj, name):
+                return None
+            val = getattr(obj, name)
+            val_type = type(val)
+            if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
+                return None
+            return val
+
         raw_req = (
             get_valid_val(order, "requirements")
             or get_valid_val(order, "payload")
@@ -330,3 +434,174 @@ def parse_croo_order(order) -> RunRequest:
             )
 
     raise ValueError("Order payload shape is not recognized.")
+
+
+def sanitize_sdk_order(order):
+    """Converts a raw SDK order object to a sanitized dict, removing secret fields."""
+    def serialize_and_sanitize(val):
+        if val is None:
+            return None
+        val_type = type(val)
+        if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
+            return None
+        
+        if isinstance(val, dict):
+            res = {}
+            for k, v in val.items():
+                kl = k.lower()
+                is_container = not isinstance(v, (str, bytes, bool, int, float)) and (
+                    isinstance(v, (dict, list)) or hasattr(v, "__dict__") or (hasattr(v, "keys") and hasattr(v, "__getitem__"))
+                )
+                if not is_container and any(secret in kl for secret in ["key", "secret", "token", "password", "auth", "credential"]):
+                    continue
+                res[k] = serialize_and_sanitize(v)
+            return res
+        elif isinstance(val, list):
+            return [serialize_and_sanitize(item) for item in val]
+        elif hasattr(val, "model_dump") and callable(val.model_dump):
+            return serialize_and_sanitize(val.model_dump())
+        elif hasattr(val, "dict") and callable(val.dict):
+            return serialize_and_sanitize(val.dict())
+        elif hasattr(val, "__dict__"):
+            return serialize_and_sanitize(vars(val))
+        elif hasattr(val, "keys") and hasattr(val, "__getitem__"):
+            try:
+                return serialize_and_sanitize(dict(val))
+            except Exception:
+                pass
+        
+        # If it is a string that is valid JSON, try to parse it
+        if isinstance(val, str):
+            val_stripped = val.strip()
+            if (val_stripped.startswith("{") and val_stripped.endswith("}")) or (val_stripped.startswith("[") and val_stripped.endswith("]")):
+                try:
+                    parsed = json.loads(val)
+                    return serialize_and_sanitize(parsed)
+                except Exception:
+                    pass
+        return val
+
+    return serialize_and_sanitize(order)
+
+
+def safe_serialize(obj):
+    """Safely serializes any object to JSON-compatible primitives."""
+    if obj is None:
+        return None
+    val_type = type(obj)
+    if val_type.__module__.startswith("unittest.mock") or val_type.__name__ in ("Mock", "MagicMock", "AsyncMock"):
+        return None
+        
+    if dataclasses.is_dataclass(obj):
+        return safe_serialize(dataclasses.asdict(obj))
+    elif hasattr(obj, "model_dump") and callable(obj.model_dump):
+        try:
+            return safe_serialize(obj.model_dump(mode="json"))
+        except TypeError:
+            return safe_serialize(obj.model_dump())
+    elif hasattr(obj, "dict") and callable(obj.dict):
+        return safe_serialize(obj.dict())
+    elif isinstance(obj, dict):
+        return {str(k): safe_serialize(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [safe_serialize(item) for item in obj]
+    elif isinstance(obj, (str, int, float, bool)):
+        return obj
+    elif hasattr(obj, "__dict__"):
+        attrs = {k: v for k, v in vars(obj).items() if not k.startswith("_")}
+        return safe_serialize(attrs)
+    else:
+        return str(obj)
+
+
+async def resolve_live_order_requirements(adapter, order_id: str, order=None):
+    """Resolves the RunRequest for an order.
+    
+    1. First tries to parse the requirements directly from the order.
+    2. If that fails and order has negotiation_id, resolves from the linked negotiation:
+       - first try get_negotiation(negotiation_id)
+       - if unavailable/fails, list accepted negotiations and match by negotiation_id.
+    3. If negotiation fallback is not applicable or fails, list provider orders and match by order_id.
+    """
+    if order is None:
+        order = await adapter.client.get_order(order_id)
+    
+    order_err = None
+    try:
+        req = parse_croo_order(order)
+        return req, "order", None
+    except ValueError as e:
+        order_err = str(e)
+        
+    order_dict = to_dict(order)
+    negotiation_id = order_dict.get("negotiation_id")
+    if not negotiation_id and hasattr(order, "negotiation_id"):
+        negotiation_id = getattr(order, "negotiation_id")
+        
+    if negotiation_id:
+        negotiation = None
+        try:
+            negotiation = await adapter.get_negotiation(negotiation_id)
+            if negotiation:
+                req = parse_croo_order(negotiation)
+                return req, "negotiation", negotiation
+        except Exception:
+            pass
+            
+        try:
+            negs = await adapter.list_negotiations(status="accepted")
+            for neg in negs:
+                neg_dict = to_dict(neg)
+                neg_id = neg_dict.get("negotiation_id") or neg_dict.get("id")
+                if not neg_id and hasattr(neg, "negotiation_id"):
+                    neg_id = getattr(neg, "negotiation_id")
+                elif not neg_id and hasattr(neg, "id"):
+                    neg_id = getattr(neg, "id")
+                    
+                if str(neg_id) == str(negotiation_id):
+                    req = parse_croo_order(neg)
+                    return req, "negotiation", neg
+        except Exception:
+            pass
+
+    for status in ["created", "paid"]:
+        try:
+            orders = await adapter.list_orders(status=status)
+            for o in orders:
+                o_dict = to_dict(o)
+                o_id = o_dict.get("order_id") or o_dict.get("id")
+                if not o_id and hasattr(o, "order_id"):
+                    o_id = getattr(o, "order_id")
+                elif not o_id and hasattr(o, "id"):
+                    o_id = getattr(o, "id")
+                
+                if str(o_id) == str(order_id):
+                    try:
+                        req = parse_croo_order(o)
+                        return req, "order", None
+                    except ValueError:
+                        pass
+        except Exception:
+            pass
+        
+        try:
+            options = adapter.sdk.ListOptions(role="provider", status=status)
+            orders = await adapter.client.list_orders(options)
+            for o in orders:
+                o_dict = to_dict(o)
+                o_id = o_dict.get("order_id") or o_dict.get("id")
+                if not o_id and hasattr(o, "order_id"):
+                    o_id = getattr(o, "order_id")
+                elif not o_id and hasattr(o, "id"):
+                    o_id = getattr(o, "id")
+                
+                if str(o_id) == str(order_id):
+                    try:
+                        req = parse_croo_order(o)
+                        return req, "order", None
+                    except ValueError:
+                        pass
+        except Exception:
+            pass
+
+    raise ValueError(f"Could not resolve requirements for order {order_id} (Order parsing error: {order_err})")

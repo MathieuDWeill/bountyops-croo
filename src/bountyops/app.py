@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+from typing import Optional
 
 import os
 from .cap_adapter import (
@@ -10,6 +12,10 @@ from .cap_adapter import (
     get_cap_adapter,
     get_croo_sdk,
     parse_croo_order,
+    sanitize_sdk_order,
+    resolve_live_order_requirements,
+    to_dict,
+    safe_serialize,
 )
 from .models import Order, Quote, QuoteRequest, RunRequest, RunResult
 from .orchestrator import run_bountyops
@@ -72,6 +78,10 @@ async def cap_live_negotiations(status: str = "pending") -> list:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+class AcceptDirectRequest(BaseModel):
+    provider_fund_address: Optional[str] = None
+
+
 @app.post("/cap/live/negotiations/{negotiation_id}/accept")
 async def cap_live_accept_negotiation(negotiation_id: str) -> dict:
     adapter = resolve_adapter()
@@ -80,6 +90,35 @@ async def cap_live_accept_negotiation(negotiation_id: str) -> dict:
     try:
         await adapter.accept_negotiation(negotiation_id)
         return {"status": "accepted", "negotiation_id": negotiation_id}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/cap/live/negotiations/{negotiation_id}/accept-direct")
+async def cap_live_accept_direct_negotiation(negotiation_id: str, body: Optional[AcceptDirectRequest] = None) -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    
+    fund_address = None
+    if body:
+        fund_address = body.provider_fund_address
+    if not fund_address:
+        fund_address = os.environ.get("CROO_PROVIDER_FUND_ADDRESS")
+        
+    if not fund_address:
+        raise HTTPException(
+            status_code=400,
+            detail="provider_fund_address is required (either in request body or via CROO_PROVIDER_FUND_ADDRESS environment variable)."
+        )
+        
+    try:
+        await adapter.accept_negotiation_with_fund_address(negotiation_id, fund_address)
+        return {
+            "status": "accepted_direct",
+            "negotiation_id": negotiation_id,
+            "provider_fund_address": fund_address
+        }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
@@ -96,15 +135,84 @@ async def cap_live_orders(status: str = "paid") -> list:
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/cap/live/orders/{order_id}/debug")
+async def cap_live_order_debug(order_id: str) -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        raw_order = await adapter.client.get_order(order_id)
+        sanitized_order = sanitize_sdk_order(raw_order)
+        
+        linked_negotiation = None
+        parse_source = None
+        parser_error = None
+        
+        try:
+            _, parse_source, neg = await resolve_live_order_requirements(adapter, order_id, order=raw_order)
+            if neg:
+                linked_negotiation = sanitize_sdk_order(neg)
+        except Exception as e:
+            parser_error = str(e)
+            
+            # Fallback to try finding and retrieving the negotiation regardless of success
+            order_dict = to_dict(raw_order)
+            negotiation_id = order_dict.get("negotiation_id")
+            if not negotiation_id and hasattr(raw_order, "negotiation_id"):
+                negotiation_id = getattr(raw_order, "negotiation_id")
+                
+            if negotiation_id:
+                try:
+                    neg = await adapter.get_negotiation(negotiation_id)
+                    if neg:
+                        linked_negotiation = sanitize_sdk_order(neg)
+                except Exception:
+                    try:
+                        negs = await adapter.list_negotiations(status="accepted")
+                        for n in negs:
+                            n_dict = to_dict(n)
+                            n_id = n_dict.get("negotiation_id") or n_dict.get("id")
+                            if not n_id and hasattr(n, "negotiation_id"):
+                                n_id = getattr(n, "negotiation_id")
+                            elif not n_id and hasattr(n, "id"):
+                                n_id = getattr(n, "id")
+                            
+                            if str(n_id) == str(negotiation_id):
+                                linked_negotiation = sanitize_sdk_order(n)
+                                break
+                    except Exception:
+                        pass
+                        
+        return {
+            "raw_order": sanitized_order,
+            "linked_negotiation": linked_negotiation,
+            "parse_source": parse_source,
+            "parser_error": parser_error,
+        }
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/cap/live/orders/{order_id}/pay")
+async def cap_live_pay_order(order_id: str) -> dict:
+    adapter = resolve_adapter()
+    if not isinstance(adapter, LiveCapAdapter):
+        raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
+    try:
+        res = await adapter.pay_order(order_id)
+        return safe_serialize(res)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.post("/cap/live/deliver/{order_id}")
 async def cap_live_deliver(order_id: str) -> dict:
     adapter = resolve_adapter()
     if not isinstance(adapter, LiveCapAdapter):
         raise HTTPException(status_code=400, detail="Endpoint only available in live mode.")
     try:
-        order = await adapter.get_order(order_id)
         try:
-            run_request = parse_croo_order(order)
+            run_request, source, neg = await resolve_live_order_requirements(adapter, order_id)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         
@@ -132,7 +240,7 @@ async def cap_live_run_paid_orders() -> dict:
             if not order_id:
                 continue
             try:
-                run_request = parse_croo_order(order)
+                run_request, source, neg = await resolve_live_order_requirements(adapter, order_id, order=order)
                 result = run_bountyops(run_request, order_id=order_id)
                 await adapter.deliver_order(order_id, result.model_dump())
                 processed.append(order_id)
