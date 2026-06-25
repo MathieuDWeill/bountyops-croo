@@ -879,3 +879,57 @@ async def test_worker_handle_negotiation_created(monkeypatch):
     await handle_negotiation_created({"id": "neg_normal"}, mock_client)
     mock_client.accept_negotiation.assert_not_called()
     mock_client.accept_negotiation_with_fund_address.assert_not_called()
+
+
+@pytest.mark.anyio
+async def test_worker_handle_order_paid(monkeypatch):
+    from unittest.mock import MagicMock, AsyncMock
+    from scripts.croo_provider_worker import handle_order_paid
+    from bountyops.cap_adapter import LiveCapAdapter
+    
+    mock_sdk = MagicMock()
+    mock_client = MagicMock()
+    mock_sdk.AgentClient.return_value = mock_client
+    mock_sdk.DeliverableType.SCHEMA = "schema"
+    
+    # Setup adapter
+    adapter = LiveCapAdapter(mock_sdk, "key", "agent")
+    adapter.client = mock_client
+    
+    # Mock return values for get_order
+    class DummyOrder:
+        def __init__(self, order_id, negotiation_id):
+            self.order_id = order_id
+            self.negotiation_id = negotiation_id
+            self.requirements = None
+            self.payload = None
+            self.create_tx_hash = "0xCreateTx"
+            self.pay_tx_hash = "0xPayTx"
+
+    class DummyNegotiation:
+        def __init__(self, negotiation_id, requirements):
+            self.negotiation_id = negotiation_id
+            self.requirements = requirements
+            
+    bad_order = DummyOrder(order_id="order_paid_123", negotiation_id="neg_paid_123")
+    mock_negotiation = DummyNegotiation(
+        negotiation_id="neg_paid_123",
+        requirements=json.dumps({
+            "opportunity_title": "Order Paid Negotiated Title",
+            "opportunity_description": "Descr",
+            "prize_pool_usd": 1000,
+            "deadline": "2026-12-12",
+            "builder_profile": "Name. Skills: Python. Goal: build"
+        })
+    )
+    
+    mock_client.get_order = AsyncMock(return_value=bad_order)
+    mock_client.get_negotiation = AsyncMock(return_value=mock_negotiation)
+    mock_client.deliver_order = AsyncMock()
+    
+    # Run the worker function
+    await handle_order_paid({"id": "order_paid_123"}, adapter)
+    
+    mock_client.get_order.assert_called_once_with("order_paid_123")
+    mock_client.get_negotiation.assert_called_once_with("neg_paid_123")
+    mock_client.deliver_order.assert_called_once()

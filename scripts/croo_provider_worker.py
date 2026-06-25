@@ -8,7 +8,12 @@ src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src"))
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-from bountyops.cap_adapter import check_live_dependencies, parse_croo_order
+from bountyops.cap_adapter import (
+    check_live_dependencies,
+    parse_croo_order,
+    resolve_live_order_requirements,
+    LiveCapAdapter,
+)
 from bountyops.models import RunRequest
 from bountyops.orchestrator import run_bountyops
 
@@ -46,6 +51,48 @@ async def handle_negotiation_created(event, client):
         print(f"ERROR accepting negotiation {negotiation_id}: {exc}", file=sys.stderr)
 
 
+async def handle_order_paid(event, adapter):
+    # Extract order details
+    print(f"Received EventType.ORDER_PAID: {event}")
+    order_id = None
+    if isinstance(event, dict):
+        order_id = event.get("order_id") or event.get("id")
+    else:
+        order_id = getattr(event, "order_id", None) or getattr(event, "id", None)
+        
+    if not order_id:
+        print("ERROR: Event lacks order_id or id.", file=sys.stderr)
+        return
+
+    parse_source = None
+    parser_error = None
+    try:
+        run_request, parse_source, neg = await resolve_live_order_requirements(adapter, order_id)
+        print(f"Successfully resolved requirements. parse_source: {parse_source}")
+    except Exception as exc:
+        parser_error = str(exc)
+        print(f"ERROR: Failed to resolve requirements for order {order_id}. parser_error: {parser_error}", file=sys.stderr)
+        return
+
+    try:
+        print(f"Running orchestrator for order {order_id}...")
+        
+        # Run orchestrator
+        result = run_bountyops(run_request, order_id=order_id)
+        
+        # Deliver order
+        print(f"Delivering result for order {order_id}...")
+        req = {
+            "type": adapter.sdk.DeliverableType.SCHEMA,
+            "value": result.model_dump()
+        }
+        await adapter.client.deliver_order(order_id, req)
+        print(f"Successfully delivered result for order {order_id}. Proof hash: {result.proof_hash}")
+        
+    except Exception as exc:
+        print(f"ERROR processing order {order_id}: {exc}", file=sys.stderr)
+
+
 async def main():
     print("Starting CROO Provider Worker...")
     
@@ -56,13 +103,9 @@ async def main():
         print(f"FATAL: {exc}", file=sys.stderr)
         sys.exit(1)
         
-    # 2. Setup Client
-    config = sdk.Config(
-        base_url=os.environ.get("CROO_API_URL", "https://api.croo.network"),
-        ws_url=os.environ.get("CROO_WS_URL", "wss://api.croo.network/ws"),
-        rpc_url=os.environ.get("BASE_RPC_URL", "https://mainnet.base.org"),
-    )
-    client = sdk.AgentClient(config, sdk_key)
+    # 2. Setup Adapter and Client
+    adapter = LiveCapAdapter(sdk, sdk_key, agent_id)
+    client = adapter.client
     
     # 3. Define Callback and Task Scheduling Helper
     def safe_schedule(coro, event_name):
@@ -78,44 +121,7 @@ async def main():
         task.add_done_callback(handle_result)
 
     async def process_order_paid(event):
-        # Extract order details
-        print(f"Received EventType.ORDER_PAID: {event}")
-        order_id = None
-        if isinstance(event, dict):
-            order_id = event.get("order_id") or event.get("id")
-        else:
-            order_id = getattr(event, "order_id", None) or getattr(event, "id", None)
-            
-        if not order_id:
-            print("ERROR: Event lacks order_id or id.", file=sys.stderr)
-            return
-
-        try:
-            # Retrieve the full order to make sure we have the payload
-            order = await client.get_order(order_id)
-            
-            try:
-                run_request = parse_croo_order(order)
-            except ValueError as exc:
-                print(f"ERROR: Order {order_id} lacks a compatible payload: {exc}", file=sys.stderr)
-                return
-
-            print(f"Running orchestrator for order {order_id}...")
-            
-            # Run orchestrator
-            result = run_bountyops(run_request, order_id=order_id)
-            
-            # Deliver order
-            print(f"Delivering result for order {order_id}...")
-            req = {
-                "type": sdk.DeliverableType.SCHEMA,
-                "value": result.model_dump()
-            }
-            await client.deliver_order(order_id, req)
-            print(f"Successfully delivered result for order {order_id}. Proof hash: {result.proof_hash}")
-            
-        except Exception as exc:
-            print(f"ERROR processing order {order_id}: {exc}", file=sys.stderr)
+        await handle_order_paid(event, adapter)
 
     def on_order_paid(event):
         safe_schedule(process_order_paid(event), "ORDER_PAID")
