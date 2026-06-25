@@ -75,8 +75,20 @@ async def main():
     )
     client = sdk.AgentClient(config, sdk_key)
     
-    # 3. Define Callback
-    async def on_order_paid(event):
+    # 3. Define Callback and Task Scheduling Helper
+    def safe_schedule(coro, event_name):
+        task = asyncio.create_task(coro)
+        print(f"Scheduled task for {event_name}")
+        def handle_result(t):
+            try:
+                t.result()
+            except asyncio.CancelledError:
+                pass
+            except Exception as e:
+                print(f"Exception raised in scheduled task for {event_name}: {e}", file=sys.stderr)
+        task.add_done_callback(handle_result)
+
+    async def process_order_paid(event):
         # Extract order details
         print(f"Received EventType.ORDER_PAID: {event}")
         order_id = None
@@ -116,8 +128,11 @@ async def main():
         except Exception as exc:
             print(f"ERROR processing order {order_id}: {exc}", file=sys.stderr)
 
-    async def on_negotiation_created(event):
-        await handle_negotiation_created(event, client)
+    def on_order_paid(event):
+        safe_schedule(process_order_paid(event), "ORDER_PAID")
+
+    def on_negotiation_created(event):
+        safe_schedule(handle_negotiation_created(event, client), "NEGOTIATION_CREATED")
 
     # 4. Connect websocket and attach listeners
     print("Connecting to CROO WebSocket...")
