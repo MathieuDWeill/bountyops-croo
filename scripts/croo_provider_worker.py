@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import asyncio
+import dataclasses
+import json
 import os
 import sys
 
@@ -16,6 +18,24 @@ from bountyops.cap_adapter import (
 )
 from bountyops.models import RunRequest
 from bountyops.orchestrator import run_bountyops
+
+
+def serialize_dataclass_or_dict(x):
+    if x is None:
+        return None
+    if isinstance(x, dict):
+        return x
+    if dataclasses.is_dataclass(x):
+        return dataclasses.asdict(x)
+    if hasattr(x, "model_dump") and callable(x.model_dump):
+        return x.model_dump()
+    if hasattr(x, "dict") and callable(x.dict):
+        return x.dict()
+    from bountyops.cap_adapter import safe_serialize
+    serialized = safe_serialize(x)
+    if isinstance(serialized, dict):
+        return serialized
+    return {}
 
 
 async def handle_negotiation_created(event, client):
@@ -82,10 +102,36 @@ async def handle_order_paid(event, adapter):
         
         # Deliver order
         print(f"Delivering result for order {order_id}...")
-        req = {
-            "type": adapter.sdk.DeliverableType.SCHEMA,
-            "value": result.model_dump()
+        
+        serialized_result = serialize_dataclass_or_dict(result)
+        
+        # Build the flat delivery schema required by the Agent Store
+        submission_pack_dict = serialized_result.get("submission_pack") or {}
+        go_no_go = submission_pack_dict.get("go_no_go") or "MAYBE"
+        expected_value_score = submission_pack_dict.get("expected_value_score") or 0
+        recommended_project = submission_pack_dict.get("recommended_project") or ""
+        proof_hash = serialized_result.get("proof_hash") or ""
+        
+        try:
+            expected_value_score = float(expected_value_score)
+        except (TypeError, ValueError):
+            expected_value_score = 0.0
+            
+        flat_payload = {
+            "go_no_go": str(go_no_go),
+            "expected_value_score": expected_value_score,
+            "recommended_project": str(recommended_project),
+            "proof_hash": str(proof_hash),
+            "submission_pack": json.dumps(serialized_result)
         }
+        
+        schema_json = json.dumps(flat_payload)
+        req = adapter.sdk.DeliverOrderRequest(
+            deliverable_type=adapter.sdk.DeliverableType.SCHEMA,
+            deliverable_schema=schema_json,
+            deliverable_text=""
+        )
+        
         await adapter.client.deliver_order(order_id, req)
         print(f"Successfully delivered result for order {order_id}. Proof hash: {result.proof_hash}")
         

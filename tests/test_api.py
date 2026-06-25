@@ -914,13 +914,13 @@ async def test_worker_handle_order_paid(monkeypatch):
     bad_order = DummyOrder(order_id="order_paid_123", negotiation_id="neg_paid_123")
     mock_negotiation = DummyNegotiation(
         negotiation_id="neg_paid_123",
-        requirements=json.dumps({
+        requirements={
             "opportunity_title": "Order Paid Negotiated Title",
             "opportunity_description": "Descr",
             "prize_pool_usd": 1000,
             "deadline": "2026-12-12",
             "builder_profile": "Name. Skills: Python. Goal: build"
-        })
+        }
     )
     
     mock_client.get_order = AsyncMock(return_value=bad_order)
